@@ -15,23 +15,9 @@ const db = knex({
     connection: {
         filename: process.env.DB_FILE || './database.sqlite'
     },
-    useNullAsDefault: true
+    useNullAsDefault: true,
+    debug: true
 });
-
-// Cria a tabela se não existir
-(async () => {
-    await db.schema.hasTable('records').then(async (exists) => {
-        if (!exists) {
-            await db.schema.createTable('records', (table) => {
-                table.string('idUnico').primary();
-                table.string('nomeEstagiario');
-                table.integer('ultimaVersao');
-                table.timestamp('dataCriacao').defaultTo(db.fn.now());
-                table.timestamp('dataAlteracao').defaultTo(db.fn.now());
-            });
-        }
-    });
-})();
 
 // Middleware para processar JSON no body das requisições
 app.use(express.json());
@@ -84,11 +70,11 @@ app.post('/save-json', async (req, res) => {
 
     // Atualiza ou insere informações no banco de dados
     try {
-        const existingRecord = await db('records').where({ idUnico: jsonObject.idUnico }).first();
+        const existingRecord = await db('tces').where({ idUnico: jsonObject.idUnico }).first();
 
         if (existingRecord) {
             // Atualiza o registro existente
-            await db('records')
+            await db('tces')
                 .where({ idUnico: jsonObject.idUnico })
                 .update({
                     ultimaVersao: nextVersion,
@@ -96,19 +82,30 @@ app.post('/save-json', async (req, res) => {
                 });
         } else {
             // Insere um novo registro
-            await db('records').insert({
+            await db('tces').insert({
                 idUnico: jsonObject.idUnico,
                 nomeEstagiario: jsonObject.nomeEstagiario || null,
+                nomeEmpresa: jsonObject.nomeEmpresa || null,
                 ultimaVersao: nextVersion,
                 dataCriacao: db.fn.now(),
                 dataAlteracao: db.fn.now()
             });
         }
     } catch (error) {
-        return res.status(500).send({ error: 'Erro ao atualizar o banco de dados.', details: error.message });
+        return res.status(500).send({ error: 'Erro ao atualizar a tabela tces.', details: error.message });
     }
 
     res.status(200).send({ message: 'Arquivo salvo com sucesso!', filePath });
+});
+
+// Endpoint para obter todos os registros da tabela tces ordenados por nomeEstagiario
+app.get('/tces', async (req, res) => {
+    try {
+        const records = await db('tces').select('*').orderBy('nomeEstagiario', 'asc');
+        res.status(200).send(records);
+    } catch (error) {
+        res.status(500).send({ error: 'Erro ao buscar os registros na tabela tces.', details: error.message });
+    }
 });
 
 // Inicia o servidor

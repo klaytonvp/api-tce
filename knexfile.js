@@ -7,6 +7,7 @@ module.exports = {
             filename: process.env.DB_FILE,
         },
         useNullAsDefault: true,
+        debug: false,
         migrations: {
             directory: './migrations',
         },
